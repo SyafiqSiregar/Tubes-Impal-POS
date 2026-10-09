@@ -3,6 +3,9 @@ import { connectBluetoothPrinter, printDirectBluetooth, printViaRawBtIntent } fr
 import { saveFileToLocalDevice } from './local-file-saver.js';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import * as supabaseApi from './src/api.js';
+
+window.supabaseApi = supabaseApi; // Expose for background sync
 
 // Initialize Lucide icons
 lucide.createIcons();
@@ -187,9 +190,27 @@ let currentExpenseFilter = 'ALL'; // ALL, KASIR, PENDING, SETTLED
 let editingExpenseId = null;
 
 // Storage helper functions
-function saveHistory() { saveStorage(STORAGE_KEYS.HISTORY, history); }
-function saveProducts() { saveStorage(STORAGE_KEYS.PRODUCTS, products); }
-function saveExpenses() { saveStorage(STORAGE_KEYS.EXPENSES, expenses); }
+function saveHistory() { 
+  saveStorage(STORAGE_KEYS.HISTORY, history); 
+  // Background sync to Supabase (Optimistic UI)
+  if (window.supabaseApi) {
+    const lastTrx = history[0]; // Assuming newest is unshifted to front
+    if (lastTrx) window.supabaseApi.addTransaction(lastTrx).catch(e => console.error("Supabase Sync Error:", e));
+  }
+}
+
+function saveProducts() { 
+  saveStorage(STORAGE_KEYS.PRODUCTS, products); 
+}
+
+function saveExpenses() { 
+  saveStorage(STORAGE_KEYS.EXPENSES, expenses); 
+  if (window.supabaseApi) {
+    const lastExp = expenses[0];
+    if (lastExp) window.supabaseApi.addExpense(lastExp).catch(e => console.error("Supabase Sync Error:", e));
+  }
+}
+
 function saveTaxes() { saveStorage(STORAGE_KEYS.TAXES, taxes); }
 function saveUsers() { saveStorage(STORAGE_KEYS.USERS, users); }
 
