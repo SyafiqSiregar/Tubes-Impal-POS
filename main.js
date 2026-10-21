@@ -3192,3 +3192,30 @@ renderTaxes();
 renderReports();
 renderUsers();
 updateDashboardStats();
+
+// Sync Anggota Kasir otomatis dari Supabase secara Real-Time
+async function syncFromSupabase() {
+  if (!window.supabaseApi || !window.supabaseApi.getKasir) return;
+  try {
+    const kasirData = await window.supabaseApi.getKasir();
+    if (kasirData && Array.isArray(kasirData) && kasirData.length > 0) {
+      console.log('✅ Berhasil menarik data kasir dari Supabase:', kasirData.length);
+      users = kasirData.map(k => ({
+        id: k.kodekasir,
+        name: k.namakasir,
+        username: k.username,
+        pin: k.password,
+        role: k.role,
+        phone: '081234567890',
+        status: k.status === 'AKTIF' ? 'ACTIVE' : 'INACTIVE',
+        createdAt: '01/10/2026'
+      }));
+      saveStorage(STORAGE_KEYS.USERS, users);
+      renderUsers();
+    }
+  } catch (err) {
+    console.warn('Gagal sync kasir dari Supabase:', err);
+  }
+}
+syncFromSupabase();
+
