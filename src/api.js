@@ -76,7 +76,7 @@ export async function addTransaction(trx) {
       diskon: Number(trx.discount || 0),
       pajak: Number(trx.tax || 0),
       total: Number(trx.total || 0),
-      metodebayar: (trx.method || 'CASH').toUpperCase()
+      metodebayar: (trx.method === 'TUNAI' ? 'CASH' : (trx.method || 'CASH')).toUpperCase()
     };
 
     const { data: pData, error: pError } = await supabase.from('penjualan').insert([payloadPenjualan]).select();

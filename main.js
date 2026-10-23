@@ -4,6 +4,7 @@ import { saveFileToLocalDevice } from './local-file-saver.js';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as supabaseApi from './src/api.js';
+import Chart from 'chart.js/auto';
 
 window.supabaseApi = supabaseApi; // Expose for background sync
 
@@ -385,6 +386,11 @@ navItems.forEach(item => {
       renderReports();
     } else if (target === 'dashboard') {
       updateDashboardStats();
+    } else if (target === 'history') {
+      renderHistory();
+    }
+    if (typeof lucide !== 'undefined' && lucide.createIcons) {
+      lucide.createIcons();
     }
     
     drawerMenu.classList.remove('show');
@@ -2474,12 +2480,23 @@ function updateDashboardStats() {
       .slice(0, 5);
       
     if (sorted.length === 0) {
-      dashTopProducts.innerHTML = `<li style="color:var(--text-muted); font-size:13px; padding:12px 0;">Belum ada produk terjual hari ini.</li>`;
+      dashTopProducts.innerHTML = `
+        <div class="empty-state-card">
+          <i data-lucide="coffee"></i>
+          <p style="color:var(--muted-foreground); font-size:13px; margin:0; font-weight:500;">Belum ada pesanan menu hari ini.</p>
+          <small style="color:var(--muted-foreground); font-size:11px; margin-top:4px;">Pesanan dari kasir POS akan otomatis muncul di sini</small>
+        </div>`;
     } else {
       dashTopProducts.innerHTML = sorted.map((p, idx) => `
-        <li>
-          <span><span class="rank-num">${idx + 1}</span> <strong>${p.name}</strong></span>
-          <span style="color:var(--primary); font-weight:600;">${p.qty}x</span>
+        <li class="dash-list-item">
+          <div class="dash-item-left">
+            <span class="rank-num rank-${idx + 1}">${idx + 1}</span>
+            <div class="dash-item-info">
+              <strong class="dash-item-title">${p.name}</strong>
+              <small class="dash-item-sub">Item terfavorit kasir</small>
+            </div>
+          </div>
+          <span class="badge-count">${p.qty}x terjual</span>
         </li>
       `).join('');
     }
@@ -2490,17 +2507,434 @@ function updateDashboardStats() {
   if (dashRecentTrx) {
     const recents = history.slice(0, 5);
     if (recents.length === 0) {
-      dashRecentTrx.innerHTML = `<li style="color:var(--text-muted); font-size:13px; padding:12px 0;">Belum ada transaksi.</li>`;
+      dashRecentTrx.innerHTML = `
+        <div class="empty-state-card">
+          <i data-lucide="receipt"></i>
+          <p style="color:var(--muted-foreground); font-size:13px; margin:0; font-weight:500;">Belum ada transaksi tersimpan hari ini.</p>
+          <small style="color:var(--muted-foreground); font-size:11px; margin-top:4px;">Riwayat struk kasir akan tertera secara real-time</small>
+        </div>`;
     } else {
       dashRecentTrx.innerHTML = recents.map(h => `
-        <li>
-          <span><strong>${h.id}</strong> <small style="color:var(--text-muted); margin-left:4px;">(${h.time})</small></span>
-          <strong>${formatRp(h.total)}</strong>
+        <li class="dash-list-item">
+          <div class="dash-item-left">
+            <div class="dash-trx-icon"><i data-lucide="receipt"></i></div>
+            <div class="dash-item-info">
+              <strong class="dash-item-title">${h.id}</strong>
+              <small class="dash-item-sub">${h.time || ''} • ${h.method || 'TUNAI'} • ${h.type || 'Dine In'}</small>
+            </div>
+          </div>
+          <strong class="dash-trx-amount">${formatRp(h.total)}</strong>
         </li>
       `).join('');
     }
   }
+
+  if (window.lucide) {
+    window.lucide.createIcons();
+  }
+
+  // Render or update analytical charts
+  renderDashboardCharts();
 }
+
+// --------------------------------------------------
+// Dashboard Analytics Charts (shadcn/ui Spec)
+// --------------------------------------------------
+let salesTrendChart = null;
+let serviceSplitChart = null;
+let currentTrendMode = 'HOURLY'; // 'HOURLY' | 'DAILY'
+let currentSplitMode = 'SERVICE'; // 'SERVICE' | 'PAYMENT'
+
+function renderDashboardCharts() {
+  const trendCanvas = document.getElementById('chart-sales-trend');
+  const splitCanvas = document.getElementById('chart-service-split');
+  if (!trendCanvas || !splitCanvas) return;
+
+  // 1. Calculate Trend Data
+  let labels = [];
+  let kafeSeries = [];
+  let cuciSeries = [];
+
+  const todayStr = new Date().toLocaleDateString('id-ID');
+
+  if (currentTrendMode === 'HOURLY') {
+    const brackets = [
+      { label: '08:00', start: 8, end: 10 },
+      { label: '10:00', start: 10, end: 12 },
+      { label: '12:00', start: 12, end: 14 },
+      { label: '14:00', start: 14, end: 16 },
+      { label: '16:00', start: 16, end: 18 },
+      { label: '18:00', start: 18, end: 20 },
+      { label: '20:00', start: 20, end: 22 },
+      { label: '22:00', start: 22, end: 24 }
+    ];
+
+    labels = brackets.map(b => b.label);
+    kafeSeries = new Array(brackets.length).fill(0);
+    cuciSeries = new Array(brackets.length).fill(0);
+
+    let maxHourlyTotal = 0;
+    let peakLabel = '-';
+
+    history.forEach(trx => {
+      let hour = 12;
+      if (trx.timestamp) {
+        hour = new Date(trx.timestamp).getHours();
+      } else if (trx.time) {
+        const match = trx.time.match(/(\d{1,2})[:.](\d{2})/);
+        if (match) hour = parseInt(match[1]);
+      }
+
+      let bracketIdx = brackets.findIndex(b => hour >= b.start && hour < b.end);
+      if (bracketIdx === -1) {
+        bracketIdx = hour < 8 ? 0 : brackets.length - 1;
+      }
+
+      const s = getTrxServices(trx);
+      kafeSeries[bracketIdx] += s.kafeTotal;
+      cuciSeries[bracketIdx] += s.cuciTotal;
+    });
+
+    brackets.forEach((b, idx) => {
+      const tot = kafeSeries[idx] + cuciSeries[idx];
+      if (tot > maxHourlyTotal) {
+        maxHourlyTotal = tot;
+        peakLabel = `${b.label} - ${b.end}:00`;
+      }
+    });
+
+    const peakEl = document.getElementById('chart-kpi-peak');
+    if (peakEl) {
+      peakEl.textContent = maxHourlyTotal > 0 ? `Jam Sibuk: ${peakLabel}` : 'Jam Sibuk: Belum terdeteksi';
+    }
+  } else {
+    // DAILY (Last 7 Days)
+    const days = [];
+    const dayNames = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+    const isMobile = window.innerWidth <= 640;
+
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const iso = d.toISOString().split('T')[0];
+      const local = d.toLocaleDateString('id-ID');
+      const label = i === 0 
+        ? 'Hari Ini' 
+        : (isMobile ? `${d.getDate()}/${d.getMonth() + 1}` : `${dayNames[d.getDay()]} (${d.getDate()}/${d.getMonth() + 1})`);
+      days.push({ iso, local, label, dateObj: d });
+    }
+
+    labels = days.map(d => d.label);
+    kafeSeries = new Array(days.length).fill(0);
+    cuciSeries = new Array(days.length).fill(0);
+
+    history.forEach(trx => {
+      let matchIdx = -1;
+      if (trx.isoDate) {
+        matchIdx = days.findIndex(d => d.iso === trx.isoDate);
+      }
+      if (matchIdx === -1 && trx.date) {
+        matchIdx = days.findIndex(d => d.local === trx.date);
+      }
+      if (matchIdx === -1 && trx.timestamp) {
+        const tIso = new Date(trx.timestamp).toISOString().split('T')[0];
+        matchIdx = days.findIndex(d => d.iso === tIso);
+      }
+      if (matchIdx === -1) {
+        matchIdx = days.length - 1;
+      }
+
+      if (matchIdx >= 0) {
+        const s = getTrxServices(trx);
+        kafeSeries[matchIdx] += s.kafeTotal;
+        cuciSeries[matchIdx] += s.cuciTotal;
+      }
+    });
+
+    let maxDayTotal = 0;
+    let maxDayLabel = '-';
+    days.forEach((d, idx) => {
+      const tot = kafeSeries[idx] + cuciSeries[idx];
+      if (tot > maxDayTotal) {
+        maxDayTotal = tot;
+        maxDayLabel = d.label;
+      }
+    });
+
+    const peakEl = document.getElementById('chart-kpi-peak');
+    if (peakEl) {
+      peakEl.textContent = maxDayTotal > 0 ? `Puncak: ${maxDayLabel}` : 'Puncak: Belum ada data';
+    }
+  }
+
+  // Update KPI Totals under Trend Chart
+  const totKafe = kafeSeries.reduce((a, b) => a + b, 0);
+  const totCuci = cuciSeries.reduce((a, b) => a + b, 0);
+  const kpiKafeEl = document.getElementById('chart-kpi-kafe');
+  if (kpiKafeEl) kpiKafeEl.textContent = formatRp(totKafe);
+  const kpiCuciEl = document.getElementById('chart-kpi-cuci');
+  if (kpiCuciEl) kpiCuciEl.textContent = formatRp(totCuci);
+
+  const isMobileView = window.innerWidth <= 640;
+
+  // Render / Update Sales Trend Chart
+  if (salesTrendChart) {
+    salesTrendChart.data.labels = labels;
+    salesTrendChart.data.datasets[0].data = kafeSeries;
+    salesTrendChart.data.datasets[1].data = cuciSeries;
+    if (salesTrendChart.options.scales.x.ticks) {
+      salesTrendChart.options.scales.x.ticks.font.size = isMobileView ? 9.5 : 11;
+      salesTrendChart.options.scales.x.ticks.maxTicksLimit = isMobileView ? 7 : 10;
+    }
+    salesTrendChart.update();
+    salesTrendChart.resize();
+  } else {
+    salesTrendChart = new Chart(trendCanvas, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          {
+            label: 'Kafe (F&B)',
+            data: kafeSeries,
+            backgroundColor: '#073C64',
+            hoverBackgroundColor: '#062F50',
+            borderRadius: 5,
+            borderSkipped: false,
+            maxBarThickness: isMobileView ? 22 : 32
+          },
+          {
+            label: 'Carwash',
+            data: cuciSeries,
+            backgroundColor: '#0284C7',
+            hoverBackgroundColor: '#0369A1',
+            borderRadius: 5,
+            borderSkipped: false,
+            maxBarThickness: isMobileView ? 22 : 32
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: {
+          mode: 'index',
+          intersect: false
+        },
+        plugins: {
+          legend: {
+            display: false
+          },
+          tooltip: {
+            backgroundColor: '#0F172A',
+            titleColor: '#FFFFFF',
+            bodyColor: '#F8FAFC',
+            borderColor: '#334155',
+            borderWidth: 1,
+            padding: 10,
+            cornerRadius: 8,
+            titleFont: { family: 'DM Sans', weight: '700', size: 12 },
+            bodyFont: { family: 'DM Sans', size: 12 },
+            callbacks: {
+              label: (context) => ` ${context.dataset.label}: ${formatRp(context.raw)}`
+            }
+          }
+        },
+        scales: {
+          x: {
+            stacked: true,
+            grid: { display: false },
+            ticks: {
+              font: { family: 'DM Sans', size: isMobileView ? 9.5 : 11, weight: '500' },
+              color: '#64748B',
+              maxRotation: 0,
+              minRotation: 0,
+              autoSkip: true,
+              maxTicksLimit: isMobileView ? 7 : 10
+            }
+          },
+          y: {
+            stacked: true,
+            grid: { color: '#F1F5F9' },
+            border: { display: false },
+            ticks: {
+              font: { family: 'DM Sans', size: isMobileView ? 9.5 : 11 },
+              color: '#64748B',
+              callback: (val) => {
+                if (val >= 1000000) return (val / 1000000) + 'jt';
+                if (val >= 1000) return (val / 1000) + 'rb';
+                return val;
+              }
+            }
+          }
+        }
+      }
+    });
+  }
+
+  // 2. Calculate Split Chart (Service vs Payment)
+  let splitLabels = [];
+  let splitData = [];
+  let splitColors = [];
+  let legendItems = [];
+
+  if (currentSplitMode === 'SERVICE') {
+    let kafeTotalAll = 0;
+    let cuciTotalAll = 0;
+    history.forEach(trx => {
+      const s = getTrxServices(trx);
+      kafeTotalAll += s.kafeTotal;
+      cuciTotalAll += s.cuciTotal;
+    });
+
+    const grandTotal = kafeTotalAll + cuciTotalAll;
+    const kafePct = grandTotal > 0 ? Math.round((kafeTotalAll / grandTotal) * 100) : 50;
+    const cuciPct = grandTotal > 0 ? (100 - kafePct) : 50;
+
+    splitLabels = ['Kafe (F&B)', 'Carwash'];
+    splitData = grandTotal > 0 ? [kafeTotalAll, cuciTotalAll] : [1, 1];
+    splitColors = ['#073C64', '#0284C7'];
+
+    legendItems = [
+      { name: 'Kafe (F&B)', color: '#073C64', amount: formatRp(kafeTotalAll), pct: grandTotal > 0 ? `${kafePct}%` : '0%' },
+      { name: 'Carwash', color: '#0284C7', amount: formatRp(cuciTotalAll), pct: grandTotal > 0 ? `${cuciPct}%` : '0%' }
+    ];
+  } else {
+    // PAYMENT
+    const payMap = {};
+    history.forEach(trx => {
+      const m = (trx.method || 'TUNAI').toUpperCase();
+      const displayMethod = m === 'TUNAI' || m === 'CASH' ? 'Tunai (Cash)' : (m === 'QRIS' ? 'QRIS' : (m === 'TRANSFER' ? 'Transfer Bank' : m));
+      payMap[displayMethod] = (payMap[displayMethod] || 0) + trx.total;
+    });
+
+    const grandTotal = Object.values(payMap).reduce((a, b) => a + b, 0);
+    const colorPalette = ['#073C64', '#10B981', '#F59E0B', '#8B5CF6'];
+
+    let idx = 0;
+    for (const [name, amt] of Object.entries(payMap)) {
+      const c = colorPalette[idx % colorPalette.length];
+      const pct = grandTotal > 0 ? Math.round((amt / grandTotal) * 100) : 0;
+      splitLabels.push(name);
+      splitData.push(amt);
+      splitColors.push(c);
+      legendItems.push({ name, color: c, amount: formatRp(amt), pct: `${pct}%` });
+      idx++;
+    }
+
+    if (legendItems.length === 0) {
+      splitLabels = ['Tunai'];
+      splitData = [1];
+      splitColors = ['#073C64'];
+      legendItems = [{ name: 'Belum ada transaksi', color: '#CBD5E1', amount: 'Rp 0', pct: '0%' }];
+    }
+  }
+
+  // Render Donut Legend HTML
+  const legendContainer = document.getElementById('chart-donut-legend-list');
+  if (legendContainer) {
+    legendContainer.innerHTML = legendItems.map(item => `
+      <div class="chart-legend-item">
+        <span class="chart-legend-label">
+          <span style="width:8px; height:8px; border-radius:50%; background:${item.color}; display:inline-block; flex-shrink:0;"></span>
+          ${item.name}
+          <span class="metric-badge neutral" style="font-size:10.5px; padding:1px 6px;">${item.pct}</span>
+        </span>
+        <span class="chart-legend-val">${item.amount}</span>
+      </div>
+    `).join('');
+  }
+
+  // Render / Update Service Split Donut Chart
+  if (serviceSplitChart) {
+    serviceSplitChart.data.labels = splitLabels;
+    serviceSplitChart.data.datasets[0].data = splitData;
+    serviceSplitChart.data.datasets[0].backgroundColor = splitColors;
+    serviceSplitChart.update();
+    serviceSplitChart.resize();
+  } else {
+    serviceSplitChart = new Chart(splitCanvas, {
+      type: 'doughnut',
+      data: {
+        labels: splitLabels,
+        datasets: [{
+          data: splitData,
+          backgroundColor: splitColors,
+          borderWidth: 2,
+          borderColor: '#FFFFFF',
+          hoverOffset: 4
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '72%',
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#0F172A',
+            titleColor: '#FFFFFF',
+            bodyColor: '#F8FAFC',
+            borderColor: '#334155',
+            borderWidth: 1,
+            padding: 10,
+            cornerRadius: 8,
+            titleFont: { family: 'DM Sans', weight: '700' },
+            bodyFont: { family: 'DM Sans' },
+            callbacks: {
+              label: (ctx) => {
+                const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                const val = ctx.raw;
+                const pct = total > 0 ? Math.round((val / total) * 100) : 0;
+                return ` ${ctx.label}: ${formatRp(val)} (${pct}%)`;
+              }
+            }
+          }
+        }
+      }
+    });
+  }
+}
+
+// Attach Chart Switcher Event Listeners
+document.getElementById('btn-chart-hourly')?.addEventListener('click', () => {
+  currentTrendMode = 'HOURLY';
+  document.getElementById('btn-chart-hourly')?.classList.add('active');
+  document.getElementById('btn-chart-daily')?.classList.remove('active');
+  renderDashboardCharts();
+});
+
+document.getElementById('btn-chart-daily')?.addEventListener('click', () => {
+  currentTrendMode = 'DAILY';
+  document.getElementById('btn-chart-daily')?.classList.add('active');
+  document.getElementById('btn-chart-hourly')?.classList.remove('active');
+  renderDashboardCharts();
+});
+
+document.getElementById('btn-chart-split-svc')?.addEventListener('click', () => {
+  currentSplitMode = 'SERVICE';
+  document.getElementById('btn-chart-split-svc')?.classList.add('active');
+  document.getElementById('btn-chart-split-pay')?.classList.remove('active');
+  renderDashboardCharts();
+});
+
+document.getElementById('btn-chart-split-pay')?.addEventListener('click', () => {
+  currentSplitMode = 'PAYMENT';
+  document.getElementById('btn-chart-split-pay')?.classList.add('active');
+  document.getElementById('btn-chart-split-svc')?.classList.remove('active');
+  renderDashboardCharts();
+});
+
+// Window resize observer for dynamic chart reflow across viewports
+let chartResizeDebounce = null;
+window.addEventListener('resize', () => {
+  clearTimeout(chartResizeDebounce);
+  chartResizeDebounce = setTimeout(() => {
+    if (document.getElementById('dashboard')?.classList.contains('active')) {
+      renderDashboardCharts();
+    }
+  }, 120);
+});
 
 // --------------------------------------------------
 // Keyboard Shortcuts & Escape Handler (antislop-human)
@@ -3218,4 +3652,25 @@ async function syncFromSupabase() {
   }
 }
 syncFromSupabase();
+
+// --- shadcn/ui Dialog Accessibility (Escape & Backdrop Dismiss) ---
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    const activeModals = document.querySelectorAll('.modal-overlay.show');
+    activeModals.forEach(modal => modal.classList.remove('show'));
+    const drawer = document.getElementById('drawer-menu');
+    if (drawer && drawer.classList.contains('show')) {
+      drawer.classList.remove('show');
+    }
+  }
+});
+
+// Tutup modal jika klik di area backdrop overlay (di luar modal card)
+document.querySelectorAll('.modal-overlay').forEach(modal => {
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      modal.classList.remove('show');
+    }
+  });
+});
 

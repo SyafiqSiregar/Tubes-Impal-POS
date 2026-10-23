@@ -112,64 +112,201 @@
 
     <!-- MAIN CONTENT -->
     <main class="main-area">
-      <!-- 1. DASHBOARD -->
+      <!-- 1. DASHBOARD (shadcn/ui Modern Architecture) -->
       <section id="dashboard" class="page-view admin-only active">
         <header class="page-header">
           <div>
-            <h2 class="page-title">Ringkasan Hari Ini</h2>
-            <p class="page-subtitle">Performa penjualan Raya Koffie & Carwash</p>
+            <h2 class="page-title">Dashboard Operasional</h2>
+            <p class="page-subtitle">Pantau performa kasir, omset, dan laba bersih harian</p>
           </div>
-          <div class="date-badge"><i data-lucide="calendar"></i> <span id="current-date"></span></div>
+          <div class="header-actions">
+            <div class="date-badge"><i data-lucide="calendar"></i> <span id="current-date"></span></div>
+            <button class="btn-primary-sm" onclick="document.querySelector('.nav-item[data-target=\'pos\']').click()">
+              <i data-lucide="shopping-bag"></i> Buka Kasir
+            </button>
+          </div>
         </header>
         
-        <!-- Dashboard Overview Card -->
-        <div class="dash-overview-card">
-          <div class="overview-header">
-            <div>
-              <span class="overview-header-label">Total Omset Penjualan Hari Ini</span>
-              <div class="overview-main-val" id="dash-laba">Rp 0</div>
+        <!-- 4 Stat Cards Grid (shadcn/ui Metric Card Grid) -->
+        <div class="dash-stats-grid">
+          <!-- Stat 1: Total Omset -->
+          <div class="dash-stat-card">
+            <div class="dash-stat-header">
+              <span class="dash-stat-title">Total Omset Penjualan</span>
+              <div class="dash-stat-icon-wrapper primary"><i data-lucide="dollar-sign"></i></div>
             </div>
-            <div style="text-align: right;">
-              <div style="font-size: 13px; color: var(--text-muted);">
-                Total Transaksi: <strong id="dash-trx-count" style="color:var(--text-main);">0</strong>
-              </div>
-              <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
-                Estimasi Laba Bersih: <strong id="dash-net-profit" style="color:var(--success);">Rp 0</strong>
-              </div>
+            <div class="dash-stat-val" id="dash-laba">Rp 0</div>
+            <div class="dash-stat-meta">
+              <span class="dash-stat-badge neutral"><i data-lucide="receipt"></i> <span id="dash-trx-count">0 Transaksi</span></span>
+              <span class="dash-stat-note">Pesanan hari ini</span>
             </div>
           </div>
 
-          <div class="metrics-row">
-            <div class="metric-item">
-              <span class="metric-label">
-                <span class="metric-indicator indicator-cafe"></span> Pendapatan Kafe
-              </span>
-              <span class="metric-val" id="dash-kafe">Rp 0</span>
+          <!-- Stat 2: Estimasi Laba Bersih -->
+          <div class="dash-stat-card">
+            <div class="dash-stat-header">
+              <span class="dash-stat-title">Estimasi Laba Bersih</span>
+              <div class="dash-stat-icon-wrapper success"><i data-lucide="trending-up"></i></div>
             </div>
-            <div class="metric-item">
-              <span class="metric-label">
-                <span class="metric-indicator indicator-wash"></span> Pendapatan Carwash
-              </span>
-              <span class="metric-val" id="dash-cuci">Rp 0</span>
+            <div class="dash-stat-val text-success" id="dash-net-profit">Rp 0</div>
+            <div class="dash-stat-meta">
+              <span class="dash-stat-badge success">Margin Toko</span>
+              <span class="dash-stat-note">Omset dikurangi biaya</span>
             </div>
-            <div class="metric-item">
-              <span class="metric-label">
-                <span class="metric-indicator indicator-expense"></span> Biaya Operasional
-              </span>
-              <span class="metric-val" id="dash-pengeluaran">Rp 0</span>
+          </div>
+
+          <!-- Stat 3: Pendapatan Kafe vs Carwash -->
+          <div class="dash-stat-card">
+            <div class="dash-stat-header">
+              <span class="dash-stat-title">Breakdown Layanan</span>
+              <div class="dash-stat-icon-wrapper carwash"><i data-lucide="layers"></i></div>
+            </div>
+            <div class="dash-split-metrics">
+              <div class="dash-split-item">
+                <span class="dash-split-label"><span class="metric-indicator indicator-cafe"></span> Kafe</span>
+                <span class="dash-split-val" id="dash-kafe">Rp 0</span>
+              </div>
+              <div class="dash-split-divider"></div>
+              <div class="dash-split-item">
+                <span class="dash-split-label"><span class="metric-indicator indicator-wash"></span> Cuci</span>
+                <span class="dash-split-val" id="dash-cuci">Rp 0</span>
+              </div>
+            </div>
+            <div class="dash-stat-meta">
+              <span class="dash-stat-note">F&B & Carwash aktif</span>
+            </div>
+          </div>
+
+          <!-- Stat 4: Beban Biaya Operasional -->
+          <div class="dash-stat-card">
+            <div class="dash-stat-header">
+              <span class="dash-stat-title">Biaya Operasional</span>
+              <div class="dash-stat-icon-wrapper destructive"><i data-lucide="wallet"></i></div>
+            </div>
+            <div class="dash-stat-val text-destructive" id="dash-pengeluaran">Rp 0</div>
+            <div class="dash-stat-meta">
+              <span class="dash-stat-badge destructive">Kas Keluar</span>
+              <span class="dash-stat-note">Bahan baku & talangan</span>
             </div>
           </div>
         </div>
 
+        <!-- Analytics & Graphic Index Grid (shadcn/ui Charts) -->
+        <div class="dash-charts-grid">
+          <!-- Main Chart: Sales Trend & Peak Performance -->
+          <div class="dash-chart-card wide">
+            <div class="chart-header">
+              <div>
+                <h3 class="chart-title">
+                  <i data-lucide="trending-up" style="width:16px;height:16px;color:var(--primary);"></i>
+                  Indeks Tren Penjualan &amp; Jam Sibuk
+                </h3>
+                <p class="chart-desc">Pergerakan omset Kafe &amp; Carwash berdasarkan waktu</p>
+              </div>
+              <div class="chart-tab-group">
+                <button type="button" class="chart-tab-btn active" id="btn-chart-hourly">
+                  <i data-lucide="clock"></i> Jam Sibuk Hari Ini
+                </button>
+                <button type="button" class="chart-tab-btn" id="btn-chart-daily">
+                  <i data-lucide="calendar"></i> 7 Hari Terakhir
+                </button>
+              </div>
+            </div>
+            <div class="chart-canvas-wrapper">
+              <canvas id="chart-sales-trend"></canvas>
+            </div>
+            <div class="chart-kpi-chips">
+              <div class="chart-kpi-chip">
+                <span class="metric-indicator indicator-cafe"></span>
+                Kafe: <strong id="chart-kpi-kafe">Rp 0</strong>
+              </div>
+              <div class="chart-kpi-chip">
+                <span class="metric-indicator indicator-wash"></span>
+                Carwash: <strong id="chart-kpi-cuci">Rp 0</strong>
+              </div>
+              <div class="chart-kpi-chip neutral">
+                <i data-lucide="zap" style="width:13px;height:13px;color:#F59E0B;"></i>
+                <span id="chart-kpi-peak">Jam Sibuk: -</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Secondary Chart: Distribution & Service Breakdown -->
+          <div class="dash-chart-card narrow">
+            <div class="chart-header">
+              <div>
+                <h3 class="chart-title">
+                  <i data-lucide="pie-chart" style="width:16px;height:16px;color:var(--carwash);"></i>
+                  Komposisi Bisnis
+                </h3>
+                <p class="chart-desc">Rasio kontribusi layanan &amp; metode</p>
+              </div>
+              <div class="chart-tab-group">
+                <button type="button" class="chart-tab-btn active" id="btn-chart-split-svc">Layanan</button>
+                <button type="button" class="chart-tab-btn" id="btn-chart-split-pay">Metode Bayar</button>
+              </div>
+            </div>
+            <div class="donut-body-wrapper">
+              <div class="chart-donut-wrapper">
+                <canvas id="chart-service-split"></canvas>
+              </div>
+              <div class="chart-donut-legend" id="chart-donut-legend-list">
+                <!-- Dynamically populated via JS -->
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Operational Shortcuts -->
+        <div class="dash-quick-section">
+          <span class="dash-section-label">Aksi Cepat Operasional</span>
+          <div class="dash-quick-grid">
+            <button class="dash-quick-btn" onclick="document.querySelector('.nav-item[data-target=\'pos\']').click()">
+              <i data-lucide="shopping-bag"></i>
+              <span>Transaksi Baru</span>
+            </button>
+            <button class="dash-quick-btn" onclick="openAddExpenseModal()">
+              <i data-lucide="plus-circle"></i>
+              <span>Catat Biaya Toko</span>
+            </button>
+            <button class="dash-quick-btn" onclick="document.querySelector('.nav-item[data-target=\'history\']').click()">
+              <i data-lucide="receipt"></i>
+              <span>Riwayat Transaksi</span>
+            </button>
+            <button class="dash-quick-btn" onclick="openExportReportModal()">
+              <i data-lucide="printer"></i>
+              <span>Cetak Rekap Omset</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 2 Detailed Panels: Top Products & Recent Transactions -->
         <div class="dashboard-bottom">
           <div class="panel">
-            <h3 class="panel-title">Produk Terlaris Hari Ini</h3>
+            <div class="panel-header">
+              <div>
+                <h3 class="panel-title">Produk Terlaris Hari Ini</h3>
+                <p class="panel-desc">Menu makanan, minuman, dan layanan paling diminati</p>
+              </div>
+              <button class="panel-header-link" onclick="document.querySelector('.nav-item[data-target=\'menu-manage\']').click()">
+                Kelola Menu <i data-lucide="arrow-right"></i>
+              </button>
+            </div>
             <ul class="top-list" id="dash-top-products">
               <!-- Rendered via JS -->
             </ul>
           </div>
+
           <div class="panel">
-            <h3 class="panel-title">Transaksi Terkini</h3>
+            <div class="panel-header">
+              <div>
+                <h3 class="panel-title">Transaksi Terkini</h3>
+                <p class="panel-desc">5 pesanan kasir terakhir yang berhasil diselesaikan</p>
+              </div>
+              <button class="panel-header-link" onclick="document.querySelector('.nav-item[data-target=\'history\']').click()">
+                Semua Riwayat <i data-lucide="arrow-right"></i>
+              </button>
+            </div>
             <ul class="top-list" id="dash-recent-trx">
               <!-- Rendered via JS -->
             </ul>
@@ -285,21 +422,39 @@
         </header>
 
         <!-- Glanceable Metric Cards for History -->
-        <div class="metrics-row" style="margin-bottom: 16px;">
+        <div class="metrics-row">
           <div class="metric-item">
-            <div class="metric-label"><span class="metric-indicator" style="background:var(--primary);"></span> Total Transaksi</div>
+            <div class="metric-header-row">
+              <span class="metric-label">Total Omset Transaksi</span>
+              <div class="metric-icon-box primary"><i data-lucide="receipt"></i></div>
+            </div>
             <div class="metric-val" id="hist-stat-all-omset">Rp 0</div>
-            <small style="color:var(--text-muted); font-size:11px;" id="hist-stat-all-count">0 Transaksi</small>
+            <div class="metric-footer">
+              <span class="metric-badge neutral" id="hist-stat-all-count">0 Transaksi</span>
+              <span class="metric-hint">Semua pesanan selesai</span>
+            </div>
           </div>
           <div class="metric-item">
-            <div class="metric-label"><span class="metric-indicator indicator-cafe"></span> Omset Kafe</div>
+            <div class="metric-header-row">
+              <span class="metric-label"><span class="metric-indicator indicator-cafe"></span> Omset Kafe F&amp;B</span>
+              <div class="metric-icon-box primary"><i data-lucide="coffee"></i></div>
+            </div>
             <div class="metric-val" style="color:var(--primary);" id="hist-stat-kafe-omset">Rp 0</div>
-            <small style="color:var(--text-muted); font-size:11px;" id="hist-stat-kafe-count">0 Trx</small>
+            <div class="metric-footer">
+              <span class="metric-badge cafe" id="hist-stat-kafe-count">0 Trx</span>
+              <span class="metric-hint">Menu Kafe</span>
+            </div>
           </div>
           <div class="metric-item">
-            <div class="metric-label"><span class="metric-indicator indicator-wash"></span> Omset Carwash</div>
+            <div class="metric-header-row">
+              <span class="metric-label"><span class="metric-indicator indicator-wash"></span> Omset Carwash</span>
+              <div class="metric-icon-box carwash"><i data-lucide="car"></i></div>
+            </div>
             <div class="metric-val" style="color:var(--carwash);" id="hist-stat-wash-omset">Rp 0</div>
-            <small style="color:var(--text-muted); font-size:11px;" id="hist-stat-wash-count">0 Trx</small>
+            <div class="metric-footer">
+              <span class="metric-badge carwash" id="hist-stat-wash-count">0 Trx</span>
+              <span class="metric-hint">Layanan cuci</span>
+            </div>
           </div>
         </div>
 
@@ -408,26 +563,49 @@
         </header>
 
         <!-- Glanceable Metric Cards for Reports (Omset, Biaya, Laba Bersih) -->
-        <div class="metrics-row" style="margin-bottom: 16px;">
+        <div class="metrics-row">
           <div class="metric-item">
-            <div class="metric-label"><span class="metric-indicator" style="background:var(--primary);"></span> Total Omset Penjualan</div>
+            <div class="metric-header-row">
+              <span class="metric-label">Total Omset Penjualan</span>
+              <div class="metric-icon-box primary"><i data-lucide="dollar-sign"></i></div>
+            </div>
             <div class="metric-val" id="rep-stat-all-omset">Rp 0</div>
-            <small style="color:var(--text-muted); font-size:11px;" id="rep-stat-all-count">0 Transaksi</small>
+            <div class="metric-footer">
+              <span class="metric-badge neutral" id="rep-stat-all-count">0 Transaksi</span>
+              <span class="metric-hint">Pendapatan kotor</span>
+            </div>
           </div>
           <div class="metric-item">
-            <div class="metric-label"><span class="metric-indicator" style="background:var(--danger);"></span> Total Biaya Operasional</div>
-            <div class="metric-val" style="color:var(--danger);" id="rep-stat-expense">Rp 0</div>
-            <small style="color:var(--text-muted); font-size:11px;" id="rep-stat-expense-count">0 Catatan Biaya</small>
+            <div class="metric-header-row">
+              <span class="metric-label">Total Biaya Operasional</span>
+              <div class="metric-icon-box destructive"><i data-lucide="wallet"></i></div>
+            </div>
+            <div class="metric-val text-destructive" id="rep-stat-expense">Rp 0</div>
+            <div class="metric-footer">
+              <span class="metric-badge destructive" id="rep-stat-expense-count">0 Catatan Biaya</span>
+              <span class="metric-hint">Beban toko</span>
+            </div>
           </div>
           <div class="metric-item">
-            <div class="metric-label"><span class="metric-indicator" style="background:var(--success);"></span> Estimasi Laba Bersih</div>
-            <div class="metric-val" style="color:var(--success); font-weight:700;" id="rep-stat-net-profit">Rp 0</div>
-            <small style="color:var(--text-muted); font-size:11px;" id="rep-stat-margin">Margin: 0%</small>
+            <div class="metric-header-row">
+              <span class="metric-label">Estimasi Laba Bersih</span>
+              <div class="metric-icon-box success"><i data-lucide="trending-up"></i></div>
+            </div>
+            <div class="metric-val text-success" id="rep-stat-net-profit">Rp 0</div>
+            <div class="metric-footer">
+              <span class="metric-badge success" id="rep-stat-margin">Margin: 0%</span>
+              <span class="metric-hint">Omset - Biaya</span>
+            </div>
           </div>
           <div class="metric-item">
-            <div class="metric-label"><span class="metric-indicator indicator-cafe"></span> Kafe vs Carwash</div>
-            <div class="metric-val" style="font-size:15px; color:var(--text-main);" id="rep-stat-split-omset">Rp 0 / Rp 0</div>
-            <small style="color:var(--text-muted); font-size:11px;" id="rep-stat-split-count">0 Trx Kafe | 0 Trx Cuci</small>
+            <div class="metric-header-row">
+              <span class="metric-label">Kafe vs Carwash</span>
+              <div class="metric-icon-box carwash"><i data-lucide="layers"></i></div>
+            </div>
+            <div class="metric-val" style="font-size:17px; color:var(--foreground);" id="rep-stat-split-omset">Rp 0 / Rp 0</div>
+            <div class="metric-footer">
+              <span class="metric-badge neutral" id="rep-stat-split-count">0 Trx Kafe | 0 Trx Cuci</span>
+            </div>
           </div>
         </div>
 
@@ -507,21 +685,39 @@
         </header>
 
         <!-- User Summary Metrics -->
-        <div class="metrics-row" style="margin-bottom: 16px;">
+        <div class="metrics-row">
           <div class="metric-item">
-            <div class="metric-label"><span class="metric-indicator" style="background:var(--primary);"></span> Total Anggota</div>
+            <div class="metric-header-row">
+              <span class="metric-label">Total Anggota</span>
+              <div class="metric-icon-box primary"><i data-lucide="users"></i></div>
+            </div>
             <div class="metric-val" id="user-stat-total">0</div>
-            <small style="color:var(--text-muted); font-size:11px;">Akun terdaftar di sistem</small>
+            <div class="metric-footer">
+              <span class="metric-badge neutral">Semua Akun</span>
+              <span class="metric-hint">Terdaftar di sistem</span>
+            </div>
           </div>
           <div class="metric-item">
-            <div class="metric-label"><span class="metric-indicator" style="background:var(--success);"></span> Kasir Aktif</div>
-            <div class="metric-val" style="color:var(--success);" id="user-stat-cashiers">0</div>
-            <small style="color:var(--text-muted); font-size:11px;">Operator bertugas</small>
+            <div class="metric-header-row">
+              <span class="metric-label">Kasir Aktif</span>
+              <div class="metric-icon-box success"><i data-lucide="user-check"></i></div>
+            </div>
+            <div class="metric-val text-success" id="user-stat-cashiers">0</div>
+            <div class="metric-footer">
+              <span class="metric-badge success">Operator</span>
+              <span class="metric-hint">Bertugas di kasir</span>
+            </div>
           </div>
           <div class="metric-item">
-            <div class="metric-label"><span class="metric-indicator" style="background:#073C64;"></span> Administrator</div>
-            <div class="metric-val" id="user-stat-admins">0</div>
-            <small style="color:var(--text-muted); font-size:11px;">Hak akses penuh</small>
+            <div class="metric-header-row">
+              <span class="metric-label">Administrator</span>
+              <div class="metric-icon-box primary"><i data-lucide="shield-check"></i></div>
+            </div>
+            <div class="metric-val" style="color:var(--primary);" id="user-stat-admins">0</div>
+            <div class="metric-footer">
+              <span class="metric-badge cafe">Owner / Admin</span>
+              <span class="metric-hint">Hak akses penuh</span>
+            </div>
           </div>
         </div>
 
@@ -554,6 +750,7 @@
   <!-- Modal Pembayaran (Dengan Tablet On-Screen Numpad) -->
   <div class="modal-overlay" id="modal-payment">
     <div class="modal-card">
+      <button type="button" class="modal-close-btn" onclick="document.getElementById('modal-payment').classList.remove('show')" aria-label="Tutup"><i data-lucide="x"></i></button>
       <h3>Konfirmasi Pembayaran</h3>
       <div class="payment-total-box">
         <span class="overview-header-label">Total Pembayaran</span>
@@ -614,6 +811,7 @@
   <!-- Modal Struk Thermal (58mm / 80mm Print Ready) -->
   <div class="modal-overlay" id="modal-receipt">
     <div class="modal-card" style="max-width: 380px;">
+      <button type="button" class="modal-close-btn" onclick="document.getElementById('modal-receipt').classList.remove('show')" aria-label="Tutup"><i data-lucide="x"></i></button>
       <div id="receipt-printable-area" class="receipt-paper">
         <div class="receipt-header">
           <img src="./raya-coffe-logo-black.png" alt="Raya Koffie" class="receipt-logo">
@@ -695,6 +893,7 @@
   <!-- Modal Diskon -->
   <div class="modal-overlay" id="modal-discount">
     <div class="modal-card">
+      <button type="button" class="modal-close-btn" onclick="document.getElementById('modal-discount').classList.remove('show')" aria-label="Tutup"><i data-lucide="x"></i></button>
       <h3>Atur Diskon Pesanan</h3>
       <div class="form-group">
         <label>Tipe Diskon</label>
@@ -717,6 +916,7 @@
   <!-- Modal Catatan Item -->
   <div class="modal-overlay" id="modal-notes">
     <div class="modal-card">
+      <button type="button" class="modal-close-btn" onclick="document.getElementById('modal-notes').classList.remove('show')" aria-label="Tutup"><i data-lucide="x"></i></button>
       <h3>Catatan Pesanan</h3>
       <input type="hidden" id="input-notes-id">
       <div class="form-group">
@@ -733,6 +933,7 @@
   <!-- Modal Tambah Menu -->
   <div class="modal-overlay" id="modal-add-menu">
     <div class="modal-card">
+      <button type="button" class="modal-close-btn" onclick="document.getElementById('modal-add-menu').classList.remove('show')" aria-label="Tutup"><i data-lucide="x"></i></button>
       <h3>Tambah Menu Baru</h3>
       <div class="form-group">
         <label>Nama Menu / Layanan</label>
@@ -759,6 +960,7 @@
   <!-- Modal Edit Menu -->
   <div class="modal-overlay" id="modal-edit-menu">
     <div class="modal-card">
+      <button type="button" class="modal-close-btn" onclick="document.getElementById('modal-edit-menu').classList.remove('show')" aria-label="Tutup"><i data-lucide="x"></i></button>
       <h3>Edit Produk</h3>
       <div class="form-group">
         <label>Nama Menu / Layanan</label>
@@ -1055,6 +1257,7 @@
   <!-- Modal Tambah Pajak -->
   <div class="modal-overlay" id="modal-add-tax">
     <div class="modal-card">
+      <button type="button" class="modal-close-btn" onclick="document.getElementById('modal-add-tax').classList.remove('show')" aria-label="Tutup"><i data-lucide="x"></i></button>
       <h3>Tambah Jenis Pajak / Biaya</h3>
       <div class="form-group">
         <label>Nama Pajak</label>
@@ -1182,6 +1385,7 @@
   <!-- Modal Tambah Anggota Baru -->
   <div class="modal-overlay" id="modal-add-user">
     <div class="modal-card">
+      <button type="button" class="modal-close-btn" onclick="closeAddUserModal()" aria-label="Tutup"><i data-lucide="x"></i></button>
       <h3>Tambah Anggota / Kasir Baru</h3>
       <p style="font-size:13px; color:var(--text-muted); margin-bottom:16px;">Tambahkan akun kasir atau admin baru untuk operasional toko.</p>
       
@@ -1228,6 +1432,7 @@
   <!-- Modal Edit Anggota -->
   <div class="modal-overlay" id="modal-edit-user">
     <div class="modal-card">
+      <button type="button" class="modal-close-btn" onclick="closeEditUserModal()" aria-label="Tutup"><i data-lucide="x"></i></button>
       <h3>Edit Data Anggota</h3>
       <p style="font-size:13px; color:var(--text-muted); margin-bottom:16px;">Perbarui data atau hak akses anggota kasir.</p>
       
